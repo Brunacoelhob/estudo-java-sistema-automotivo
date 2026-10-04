@@ -1,73 +1,70 @@
 package com.estudante.sistemaautomotivo.controller;
 
-import com.estudante.sistemaautomotivo.model.Veiculo;
-import com.estudante.sistemaautomotivo.repository.VeiculoRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.estudante.sistemaautomotivo.dto.Dtos.VeiculoRequest;
+import com.estudante.sistemaautomotivo.dto.Dtos.VeiculoResponse;
+import com.estudante.sistemaautomotivo.model.StatusVeiculo;
+import com.estudante.sistemaautomotivo.service.VeiculoService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PagedModel;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import java.util.List;
-import java.util.Optional;
+import java.math.BigDecimal;
 
 @RestController
 @RequestMapping("/veiculos")
+@Tag(name = "Veículos")
 public class VeiculoController {
 
-    @Autowired
-    private VeiculoRepository veiculoRepository;
+    private static final int TAMANHO_MAXIMO_DA_PAGINA = 100;
 
-    // GET com filtros opcionais
+    private final VeiculoService servico;
+
+    public VeiculoController(VeiculoService servico) {
+        this.servico = servico;
+    }
+
     @GetMapping
-    public List<Veiculo> listar(
-            @RequestParam(required = false) String status,
+    @Operation(summary = "Lista veículos com filtros combináveis e paginação")
+    public PagedModel<VeiculoResponse> listar(
+            @RequestParam(required = false) StatusVeiculo status,
             @RequestParam(required = false) Integer anoFabricacao,
-            @RequestParam(required = false) Double precoMax,
+            @RequestParam(required = false) BigDecimal precoMax,
             @RequestParam(required = false) Long marcaId,
-            @RequestParam(required = false) Long modeloId
-    ) {
-        if (status != null) return veiculoRepository.findByStatus(status);
-        if (anoFabricacao != null) return veiculoRepository.findByAnoFabricacao(anoFabricacao);
-        if (precoMax != null) return veiculoRepository.findByPrecoLessThanEqual(precoMax);
-        if (marcaId != null) return veiculoRepository.findByMarcaId(marcaId);
-        if (modeloId != null) return veiculoRepository.findByModeloId(modeloId);
-
-        return veiculoRepository.findAll();
+            @RequestParam(required = false) Long modeloId,
+            @RequestParam(defaultValue = "0") int pagina,
+            @RequestParam(defaultValue = "20") int tamanho) {
+        // Limita o tamanho da página: ?tamanho=1000000 não pode derrubar o servidor.
+        var paginacao = PageRequest.of(Math.max(0, pagina), Math.min(Math.max(1, tamanho), TAMANHO_MAXIMO_DA_PAGINA),
+                Sort.by("id"));
+        return new PagedModel<>(servico.listar(status, anoFabricacao, precoMax, marcaId, modeloId, paginacao));
     }
 
-    // POST /veiculos
+    @GetMapping("/{id}")
+    public VeiculoResponse buscar(@PathVariable Long id) {
+        return servico.buscar(id);
+    }
+
     @PostMapping
-    public Veiculo cadastrar(@RequestBody Veiculo veiculo) {
-        return veiculoRepository.save(veiculo);
+    public ResponseEntity<VeiculoResponse> criar(@Valid @RequestBody VeiculoRequest r) {
+        VeiculoResponse criado = servico.criar(r);
+        var local = ServletUriComponentsBuilder.fromCurrentRequest().path("/{id}").buildAndExpand(criado.id()).toUri();
+        return ResponseEntity.created(local).body(criado);
     }
 
-    // PUT /veiculos/{id}
     @PutMapping("/{id}")
-    public ResponseEntity<Veiculo> atualizar(@PathVariable Long id, @RequestBody Veiculo dados) {
-        Optional<Veiculo> veiculoOptional = veiculoRepository.findById(id);
-
-        if (veiculoOptional.isPresent()) {
-            Veiculo veiculo = veiculoOptional.get();
-            veiculo.setCor(dados.getCor());
-            veiculo.setAnoFabricacao(dados.getAnoFabricacao());
-            veiculo.setQuilometragem(dados.getQuilometragem());
-            veiculo.setPreco(dados.getPreco());
-            veiculo.setStatus(dados.getStatus());
-            veiculo.setMarca(dados.getMarca());
-            veiculo.setModelo(dados.getModelo());
-            return ResponseEntity.ok(veiculoRepository.save(veiculo));
-        }
-
-        return ResponseEntity.notFound().build();
+    public VeiculoResponse atualizar(@PathVariable Long id, @Valid @RequestBody VeiculoRequest r) {
+        return servico.atualizar(id, r);
     }
 
-    // DELETE /veiculos/{id}
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> remover(@PathVariable Long id) {
-        if (veiculoRepository.existsById(id)) {
-            veiculoRepository.deleteById(id);
-            return ResponseEntity.noContent().build();
-        }
-
-        return ResponseEntity.notFound().build();
+        servico.remover(id);
+        return ResponseEntity.noContent().build();
     }
 }

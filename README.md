@@ -1,47 +1,83 @@
-# 🚗 Sistema Automotivo
+# Sistema Automotivo (Spring Boot + MySQL)
 
-Este projeto tem como objetivo a criação de um sistema web completo para cadastro, consulta, atualização e exclusão de veículos, integrando **Java com Spring Boot** no backend e **HTML/CSS/JavaScript** no frontend.
+[![CI](https://github.com/Brunacoelhob/estudo-java-sistema-automotivo/actions/workflows/ci.yml/badge.svg)](https://github.com/Brunacoelhob/estudo-java-sistema-automotivo/actions/workflows/ci.yml)
+![Java](https://img.shields.io/badge/java-21-orange)
+![Spring Boot](https://img.shields.io/badge/spring%20boot-3.4-6DB33F)
+![License](https://img.shields.io/badge/license-MIT-blue)
 
-## 📋 Funcionalidades
+API REST para cadastro e consulta de **marcas, modelos e veículos**, com filtros combináveis, paginação, validação e documentação interativa (Swagger).
 
-- Cadastro de **marcas e modelos**
-- Cadastro de **veículos** com marca, modelo, cor, ano, quilometragem, preço e status
-- **Consulta e filtro** de veículos por marca, modelo, ano, preço e status
-- **Edição e exclusão** de marcas, modelos e veículos
-- Interface simples e amigável
+## Endpoints
 
-## 🛠️ Tecnologias Utilizadas
+| Recurso | Rotas |
+|---|---|
+| Marcas | `GET/POST /marcas` · `PUT/DELETE /marcas/{id}` |
+| Modelos | `GET/POST /modelos` · `PUT/DELETE /modelos/{id}` |
+| Veículos | `GET/POST /veiculos` · `GET/PUT/DELETE /veiculos/{id}` |
 
-### Backend:
-- Java 17
-- Spring Boot
-- Spring Web
-- Spring Data JPA
-- Banco de Dados H2 (ou outro configurável)
-- Maven
+Filtros de `GET /veiculos` (**todos combináveis**): `status` (`DISPONIVEL`, `RESERVADO`, `VENDIDO`), `anoFabricacao`, `precoMax`, `marcaId`, `modeloId`, além de `pagina` e `tamanho` (máx. 100).
 
-### Frontend:
-- HTML5
-- CSS3
-- JavaScript (Fetch API)
+```bash
+# Veículos disponíveis de 2020 até R$ 40.000
+curl "http://localhost:8081/veiculos?status=DISPONIVEL&anoFabricacao=2020&precoMax=40000"
+```
 
-## ⚙️ Como Executar
+## Arquitetura
 
-### Backend (Spring Boot)
+```
+controller (HTTP + @Valid) ─► service (regras, transações) ─► repository (JPA) ─► MySQL (Flyway)
+        └─ dto: contratos de entrada/saída  ·  exception: respostas de erro padronizadas (RFC 9457)
+```
 
-1. Clone o repositório:
-   ```bash
-   git clone https://github.com/Brunacoelhob/sistema-automotivo.git
-   cd sistema-automotivo
-2. Abra o projeto no IntelliJ, VS Code ou Eclipse
+## Melhorias em relação à primeira versão
 
-3. Execute a classe: SistemaAutomotivoApplication.java
+| Antes | Agora |
+|---|---|
+| Senha do banco no `application.properties` | Variáveis de ambiente (`DB_PASSWORD` obrigatória) |
+| Filtros: só o **primeiro** parâmetro informado era aplicado | Filtros combinados com `Specification` |
+| Veículo guardava marca **e** modelo separados (dava para ter "Fiat Civic") | Só o modelo; a marca é derivada |
+| Excluir marca apagava os modelos em cascata (e quebrava com veículos) | Recusa com **409** enquanto houver dependentes |
+| `status` era texto livre ("disponível", "Disponivel"…) | Enum validado |
+| `double` para preço; sem validação de ano/km/preço | `BigDecimal`, validação e `CHECK` no banco |
+| Entidades expostas direto (mass assignment, loops JSON) | DTOs |
+| Sem unicidade de nomes | Marca única; modelo único por marca (409 em duplicata) |
+| Listagem sem paginação, N+1 de consultas | Paginação (limite de página) e `JOIN FETCH` |
+| `ddl-auto=update`, CORS fixo, logs SQL em TRACE | Flyway + `validate`, CORS configurável, logs limpos |
+| Sem testes, sem Docker, sem CI | 11 testes ponta a ponta, Docker Compose e CI |
 
-4. A API estará disponível em: http://localhost:8081
-   
-5. Frontend
- - Localize o arquivo index.html na pasta do projeto.
+## Como executar
 
- - Clique duas vezes ou abra no navegador.
+### Com Docker (recomendado)
 
- - O frontend se comunica com o backend local automaticamente.
+```bash
+cp .env.example .env                  # defina DB_PASSWORD
+docker compose up -d --build --wait
+```
+
+Swagger: http://localhost:8081/swagger-ui.html · Saúde: http://localhost:8081/actuator/health
+
+### Sem Docker
+
+Requer Java 21, Maven e um MySQL com o banco `sistema_automotivo` criado.
+
+```bash
+export DB_PASSWORD=sua_senha          # opcionais: DB_URL, DB_USER, PORT, CORS_ORIGENS
+mvn spring-boot:run
+```
+
+## Testes
+
+```bash
+mvn verify
+```
+
+Sobem a aplicação inteira com H2 em modo MySQL, executando as mesmas migrações Flyway de produção.
+
+## Limitações conhecidas
+
+- A API **não tem autenticação**: adequada para estudo/uso local. Para publicar, adicione Spring Security (JWT) e HTTPS.
+- O front-end citado na versão original não fazia parte do repositório; a API é consumida via Swagger ou qualquer cliente HTTP.
+
+## Licença
+
+[MIT](LICENSE)

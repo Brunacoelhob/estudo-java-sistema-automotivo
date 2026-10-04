@@ -1,56 +1,47 @@
 package com.estudante.sistemaautomotivo.controller;
 
-import com.estudante.sistemaautomotivo.model.Modelo;
-import com.estudante.sistemaautomotivo.repository.ModeloRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.estudante.sistemaautomotivo.dto.Dtos.ModeloRequest;
+import com.estudante.sistemaautomotivo.dto.Dtos.ModeloResponse;
+import com.estudante.sistemaautomotivo.service.ModeloService;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.util.List;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/modelos")
+@Tag(name = "Modelos")
 public class ModeloController {
 
-    @Autowired
-    private ModeloRepository modeloRepository;
+    private final ModeloService servico;
 
-    // GET /modelos
+    public ModeloController(ModeloService servico) {
+        this.servico = servico;
+    }
+
     @GetMapping
-    public List<Modelo> listar() {
-        return modeloRepository.findAll();
+    public List<ModeloResponse> listar() {
+        return servico.listar();
     }
 
-    // POST /modelos
     @PostMapping
-    public Modelo cadastrar(@RequestBody Modelo modelo) {
-        return modeloRepository.save(modelo);
+    public ResponseEntity<ModeloResponse> criar(@Valid @RequestBody ModeloRequest r) {
+        ModeloResponse criado = servico.criar(r);
+        var local = ServletUriComponentsBuilder.fromCurrentRequest().path("/{id}").buildAndExpand(criado.id()).toUri();
+        return ResponseEntity.created(local).body(criado);
     }
 
-    // PUT /modelos/{id}
     @PutMapping("/{id}")
-    public ResponseEntity<Modelo> atualizar(@PathVariable Long id, @RequestBody Modelo dados) {
-        Optional<Modelo> optionalModelo = modeloRepository.findById(id);
-
-        if (optionalModelo.isPresent()) {
-            Modelo modelo = optionalModelo.get();
-            modelo.setNome(dados.getNome());
-            modelo.setMarca(dados.getMarca());
-            return ResponseEntity.ok(modeloRepository.save(modelo));
-        }
-
-        return ResponseEntity.notFound().build();
+    public ModeloResponse atualizar(@PathVariable Long id, @Valid @RequestBody ModeloRequest r) {
+        return servico.atualizar(id, r);
     }
 
-    // DELETE /modelos/{id}
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> remover(@PathVariable Long id) {
-        if (modeloRepository.existsById(id)) {
-            modeloRepository.deleteById(id);
-            return ResponseEntity.noContent().build();
-        }
-
-        return ResponseEntity.notFound().build();
+        servico.remover(id);
+        return ResponseEntity.noContent().build();
     }
 }

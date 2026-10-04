@@ -1,6 +1,5 @@
 package com.estudante.sistemaautomotivo.model;
 
-import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 
 @Entity
@@ -10,15 +9,15 @@ public class Modelo {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false, length = 80)
     private String nome;
 
-    @ManyToOne
-    @JoinColumn(name = "marca_id") // FK no banco
-    @JsonBackReference // <<< Adiciona isso aqui!
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "marca_id", nullable = false)
     private Marca marca;
 
-    // Construtores
-    public Modelo() {
+    protected Modelo() {
+        // exigido pelo JPA
     }
 
     public Modelo(String nome, Marca marca) {
@@ -26,28 +25,9 @@ public class Modelo {
         this.marca = marca;
     }
 
-    // Getters e Setters
-    public Long getId() {
-        return id;
-    }
-
-    public String getNome() {
-        return nome;
-    }
-
-    public Marca getMarca() {
-        return marca;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public void setNome(String nome) {
-        this.nome = nome;
-    }
-
-    public void setMarca(Marca marca) {
-        this.marca = marca;
-    }
+    public Long getId() { return id; }
+    public String getNome() { return nome; }
+    public Marca getMarca() { return marca; }
+    public void setNome(String nome) { this.nome = nome; }
+    public void setMarca(Marca marca) { this.marca = marca; }
 }

@@ -1,63 +1,47 @@
 package com.estudante.sistemaautomotivo.controller;
 
-import com.estudante.sistemaautomotivo.model.Marca;
-import com.estudante.sistemaautomotivo.repository.MarcaRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.estudante.sistemaautomotivo.dto.Dtos.MarcaRequest;
+import com.estudante.sistemaautomotivo.dto.Dtos.MarcaResponse;
+import com.estudante.sistemaautomotivo.service.MarcaService;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import java.net.URI;
 import java.util.List;
-import java.util.Optional;
 
-@CrossOrigin(origins = "http://127.0.0.1:5500") // Evita conflitos de CORS
 @RestController
 @RequestMapping("/marcas")
+@Tag(name = "Marcas")
 public class MarcaController {
 
-    @Autowired
-    private MarcaRepository marcaRepository;
+    private final MarcaService servico;
 
-    // GET /marcas
+    public MarcaController(MarcaService servico) {
+        this.servico = servico;
+    }
+
     @GetMapping
-    public List<Marca> listar() {
-        return marcaRepository.findAll();
+    public List<MarcaResponse> listar() {
+        return servico.listar();
     }
 
-    // POST /marcas
     @PostMapping
-    public ResponseEntity<Marca> cadastrar(@RequestBody Marca marca) {
-        if (marca.getModelos() != null) {
-            marca.getModelos().forEach(m -> m.setMarca(marca));
-        }
-
-        Marca salva = marcaRepository.save(marca);
-
-        // Retorna HTTP 201 Created com a URI do recurso criado
-        return ResponseEntity.created(URI.create("/marcas/" + salva.getId())).body(salva);
+    public ResponseEntity<MarcaResponse> criar(@Valid @RequestBody MarcaRequest r) {
+        MarcaResponse criada = servico.criar(r);
+        var local = ServletUriComponentsBuilder.fromCurrentRequest().path("/{id}").buildAndExpand(criada.id()).toUri();
+        return ResponseEntity.created(local).body(criada);
     }
 
-    // PUT /marcas/{id}
     @PutMapping("/{id}")
-    public ResponseEntity<Marca> atualizar(@PathVariable Long id, @RequestBody Marca novaMarca) {
-        Optional<Marca> marcaOptional = marcaRepository.findById(id);
-
-        if (marcaOptional.isPresent()) {
-            Marca marca = marcaOptional.get();
-            marca.setNome(novaMarca.getNome());
-            return ResponseEntity.ok(marcaRepository.save(marca));
-        }
-
-        return ResponseEntity.notFound().build();
+    public MarcaResponse atualizar(@PathVariable Long id, @Valid @RequestBody MarcaRequest r) {
+        return servico.atualizar(id, r);
     }
 
-    // DELETE /marcas/{id}
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> remover(@PathVariable Long id) {
-        if (marcaRepository.existsById(id)) {
-            marcaRepository.deleteById(id);
-            return ResponseEntity.noContent().build();
-        }
-        return ResponseEntity.notFound().build();
+        servico.remover(id);
+        return ResponseEntity.noContent().build();
     }
 }
